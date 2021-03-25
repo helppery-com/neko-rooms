@@ -2,6 +2,7 @@ package room
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -46,6 +47,13 @@ type RoomManagerCtx struct {
 	client *dockerClient.Client
 }
 
+func (manager *RoomManagerCtx) Config() types.RoomsConfig {
+	return types.RoomsConfig{
+		Connections: manager.config.EprMax - manager.config.EprMin + 1,
+		NekoImages:  manager.config.NekoImages,
+	}
+}
+
 func (manager *RoomManagerCtx) List() ([]types.RoomEntry, error) {
 	containers, err := manager.listContainers()
 	if err != nil {
@@ -66,6 +74,10 @@ func (manager *RoomManagerCtx) List() ([]types.RoomEntry, error) {
 }
 
 func (manager *RoomManagerCtx) Create(settings types.RoomSettings) (string, error) {
+	if in, _ := utils.ArrayIn(settings.NekoImage, manager.config.NekoImages); !in {
+		return "", fmt.Errorf("invalid neko image")
+	}
+
 	// TODO: Check if path name exists.
 	roomName := settings.Name
 	if roomName == "" {
@@ -113,11 +125,12 @@ func (manager *RoomManagerCtx) Create(settings types.RoomSettings) (string, erro
 
 	labels := map[string]string{
 		// Set internal labels
-		"m1k1o.neko_rooms.name":     roomName,
-		"m1k1o.neko_rooms.url":      urlProto + "://" + manager.config.TraefikDomain + port + "/" + roomName + "/",
-		"m1k1o.neko_rooms.instance": manager.config.InstanceName,
-		"m1k1o.neko_rooms.epr.min":  fmt.Sprintf("%d", epr.Min),
-		"m1k1o.neko_rooms.epr.max":  fmt.Sprintf("%d", epr.Max),
+		"m1k1o.neko_rooms.name":       roomName,
+		"m1k1o.neko_rooms.url":        urlProto + "://" + manager.config.TraefikDomain + port + "/" + roomName + "/",
+		"m1k1o.neko_rooms.instance":   manager.config.InstanceName,
+		"m1k1o.neko_rooms.epr.min":    fmt.Sprintf("%d", epr.Min),
+		"m1k1o.neko_rooms.epr.max":    fmt.Sprintf("%d", epr.Max),
+		"m1k1o.neko_rooms.neko_image": settings.NekoImage,
 
 		// Set traefik labels
 		"traefik.enable": "true",
@@ -151,7 +164,7 @@ func (manager *RoomManagerCtx) Create(settings types.RoomSettings) (string, erro
 			"NEKO_ICELITE=true",
 		}, settings.ToEnv()...),
 		// Name of the image as it was passed by the operator (e.g. could be symbolic)
-		Image: manager.config.NekoImage,
+		Image: settings.NekoImage,
 		// List of labels set to this container
 		Labels: labels,
 	}
@@ -215,31 +228,6 @@ func (manager *RoomManagerCtx) GetEntry(id string) (*types.RoomEntry, error) {
 	return manager.containerToEntry(*container)
 }
 
-func (manager *RoomManagerCtx) GetSettings(id string) (*types.RoomSettings, error) {
-	container, err := manager.inspectContainer(id)
-	if err != nil {
-		return nil, err
-	}
-
-	roomName, ok := container.Config.Labels["m1k1o.neko_rooms.name"]
-	if !ok {
-		return nil, fmt.Errorf("Damaged container labels: name not found.")
-	}
-
-	epr, err := manager.getEprFromLabels(container.Config.Labels)
-	if err != nil {
-		return nil, err
-	}
-
-	settings := types.RoomSettings{
-		Name:           roomName,
-		MaxConnections: epr.Max - epr.Min + 1,
-	}
-
-	err = settings.FromEnv(container.Config.Env)
-	return &settings, err
-}
-
 func (manager *RoomManagerCtx) Remove(id string) error {
 	_, err := manager.inspectContainer(id)
 	if err != nil {
@@ -260,6 +248,64 @@ func (manager *RoomManagerCtx) Remove(id string) error {
 	})
 
 	return err
+}
+
+func (manager *RoomManagerCtx) GetSettings(id string) (*types.RoomSettings, error) {
+	container, err := manager.inspectContainer(id)
+	if err != nil {
+		return nil, err
+	}
+
+	roomName, ok := container.Config.Labels["m1k1o.neko_rooms.name"]
+	if !ok {
+		return nil, fmt.Errorf("Damaged container labels: name not found.")
+	}
+
+	nekoImage, ok := container.Config.Labels["m1k1o.neko_rooms.neko_image"]
+	if !ok {
+		return nil, fmt.Errorf("Damaged container labels: neko_image not found.")
+	}
+
+	epr, err := manager.getEprFromLabels(container.Config.Labels)
+	if err != nil {
+		return nil, err
+	}
+
+	settings := types.RoomSettings{
+		Name:           roomName,
+		NekoImage:      nekoImage,
+		MaxConnections: epr.Max - epr.Min + 1,
+	}
+
+	err = settings.FromEnv(container.Config.Env)
+	return &settings, err
+}
+
+func (manager *RoomManagerCtx) GetStats(id string) (*types.RoomStats, error) {
+	container, err := manager.inspectContainer(id)
+	if err != nil {
+		return nil, err
+	}
+
+	settings := types.RoomSettings{}
+	err = settings.FromEnv(container.Config.Env)
+	if err != nil {
+		return nil, err
+	}
+
+	output, err := manager.containerExec(id, []string{
+		"wget", "-q", "-O-", "http://127.0.0.1:8080/stats?pwd=" + settings.AdminPass,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var stats types.RoomStats
+	if err := json.Unmarshal([]byte(output), &stats); err != nil {
+		return nil, err
+	}
+
+	return &stats, nil
 }
 
 func (manager *RoomManagerCtx) Start(id string) error {

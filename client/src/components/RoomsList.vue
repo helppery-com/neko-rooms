@@ -9,14 +9,30 @@
       hide-default-footer
     >
       <template v-slot:[`item.url`]="{ item }">
-        <v-btn @click="roomId = item.id; dialog = true" color="blue" small class="mr-2"> <v-icon small>mdi-information-outline</v-icon></v-btn>
-        <v-btn :disabled="!item.running" :href="item.url" target="_blank" small> <v-icon small>mdi-open-in-new</v-icon></v-btn>
+        <v-tooltip bottom open-delay="300">
+          <template v-slot:activator="{ on, attrs }">
+            <v-btn v-bind="attrs" v-on="on" @click="roomId = item.id; dialog = true" color="blue" small class="mr-2"> <v-icon small>mdi-information-outline</v-icon></v-btn>
+          </template>
+          <span>View more information</span>
+        </v-tooltip>
+        <v-tooltip bottom open-delay="300">
+          <template v-slot:activator="{ on, attrs }">
+            <v-btn v-bind="attrs" v-on="on" :disabled="!item.running" :href="item.url" target="_blank" small> <v-icon small>mdi-open-in-new</v-icon></v-btn>
+          </template>
+          <span>Link to deployment</span>
+        </v-tooltip>
       </template>
       <template v-slot:[`item.max_connections`]="{ item }">
         <span v-if="item.max_connections">{{ item.max_connections }}</span>
         <i v-else>--not-specified--</i>
       </template>
       <template v-slot:[`item.status`]="{ item }">
+        <v-tooltip bottom open-delay="300">
+          <template v-slot:activator="{ on, attrs }">
+            <v-btn v-bind="attrs" v-on="on" @click="Reload(item.id)" :loading="roomLoading.includes(item.id)" class="mr-3" color="green" icon><v-icon>mdi-refresh</v-icon></v-btn>
+          </template>
+          <span>Refresh data</span>
+        </v-tooltip>
         <v-chip :color="item.running ? 'green' : 'red'" dark small> {{ item.status }} </v-chip>
       </template>
       <template v-slot:[`item.created`]="{ item }">
@@ -67,12 +83,13 @@ export default class RoomsList extends Vue {
 
   private dialog = false
   private roomId = ''
+  private roomLoading = [] as Array<string>
 
   private headers = [
     { text: 'Deployment', value: 'url' },
     { text: 'Name', value: 'name' },
     { text: 'Max connections', value: 'max_connections' },
-    { text: 'Image', value: 'image' },
+    { text: 'Neko image', value: 'neko_image' },
     { text: 'Status', value: 'status' },
     { text: 'Created', value: 'created' },
     {
@@ -90,6 +107,17 @@ export default class RoomsList extends Vue {
 
   get rooms() {
     return this.$store.state.rooms
+  }
+
+  async Reload(roomId: string) {
+    Vue.set(this, 'roomLoading', [roomId, ...this.roomLoading])
+
+    try {
+      await this.$store.dispatch('ROOMS_GET', roomId)
+    } finally {
+      const roomLoading = this.roomLoading.filter((id: string) => id != roomId)
+      Vue.set(this, 'roomLoading', roomLoading)
+    }
   }
 }
 </script>

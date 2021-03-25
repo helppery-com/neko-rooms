@@ -3,11 +3,32 @@ info:
   title: Neko Rooms
   version: 1.0.0
 servers:
-  - url: 'http://192.168.1.20:8080'
+  # Added by API Auto Mocking Plugin
+  - description: SwaggerHub API Auto Mocking
+    url: https://virtserver.swaggerhub.com/m1k1o/neko-rooms/1.0.0
 tags:
+  - name: config
+    description: config endpoints
   - name: rooms
     description: room endpoints
 paths:
+  /api/config/rooms:
+    get:
+      tags:
+        - config
+      summary: Get rooms config
+      operationId: roomsConfig
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoomsConfig'
+        '500':
+          description: Internal server error
   /api/rooms:
     get:
       tags:
@@ -50,7 +71,7 @@ paths:
     get:
       tags:
         - rooms
-      summary: Get room settings
+      summary: Get room entry
       operationId: roomGet
       parameters:
         - in: path
@@ -64,7 +85,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RoomSettings'
+                $ref: '#/components/schemas/RoomEntry'
         '400':
           description: Bad request
         '500':
@@ -83,6 +104,50 @@ paths:
       responses:
         '204':
           description: OK
+        '500':
+          description: Internal server error
+  /api/rooms/{roomId}/settings:
+    get:
+      tags:
+        - rooms
+      summary: Get room settings
+      operationId: roomSettings
+      parameters:
+        - in: path
+          name: roomId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomSettings'
+        '400':
+          description: Bad request
+        '500':
+          description: Internal server error
+  /api/rooms/{roomId}/stats:
+    get:
+      tags:
+        - rooms
+      summary: Get room statistics
+      operationId: roomStats
+      parameters:
+        - in: path
+          name: roomId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoomStats'
         '500':
           description: Internal server error
   /api/rooms/{roomId}/stop:
@@ -139,6 +204,18 @@ paths:
 
 components:
   schemas:
+    RoomsConfig:
+      type: object
+      properties:
+        connections:
+          type: number
+          example: 100
+        neko_images:
+          type: array
+          items:
+            type: string
+            example: m1k1o/neko:latest
+
     RoomEntry:
       type: object
       properties:
@@ -151,12 +228,12 @@ components:
         name:
           type: string
           example: foobar
+        neko_image:
+          type: string
+          example: m1k1o/neko:latest
         max_connections:
           type: number
           example: 10
-        image:
-          type: string
-          example: m1k1o/neko:latest
         running:
           type: boolean
           example: true
@@ -167,12 +244,16 @@ components:
           type: string
           format: datetime
           example: "2021-03-07T21:56:34Z"
+
     RoomSettings:
       type: object
       properties:
         name:
           type: string
           example: foobar
+        neko_image:
+          type: string
+          example: m1k1o/neko:latest
         max_connections:
           type: number
           example: 10
@@ -192,20 +273,47 @@ components:
           example: VP8
         video_bitrate:
           type: number
-          format: int
           example: 3072
         video_pipeline:
           type: string
         video_max_fps:
           type: number
-          format: int
           example: 25
         audio_codec:
           type: string
           example: OPUS
         audio_bitrate:
           type: number
-          format: int
           example: 128
         audio_pipeline:
           type: string
+
+    RoomStats:
+      type: object
+      properties:
+        connections:
+          type: number
+          example: 3
+        host:
+          type: string
+          example: foobar
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomMember'
+
+    RoomMember:
+      type: object
+      properties:
+        id:
+          type: string
+          example: foobar
+        displayname:
+          type: string
+          example: Foo Bar
+        admin:
+          type: boolean
+          example: true
+        muted:
+          type: boolean
+          example: false

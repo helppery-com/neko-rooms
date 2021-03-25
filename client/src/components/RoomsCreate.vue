@@ -19,17 +19,16 @@
             ></v-text-field>
           </v-col>
           <v-col class="pb-0">
-            <v-text-field
-              label="Max connections"
-              type="number"
-              :rules="[ rules.required, rules.nonZero, rules.onlyPositive ]"
-              v-model="data.max_connections"
-            ></v-text-field>
+            <v-select
+              label="Neko image"
+              :items="nekoImages"
+              v-model="data.neko_image"
+            ></v-select>
           </v-col>
         </v-row>
 
         <v-row align="center">
-          <v-col class="pt-0">
+          <v-col class="py-0">
             <v-text-field
               label="User password"
               :rules="[ rules.required ]"
@@ -40,7 +39,7 @@
               autocomplete="off"
             ></v-text-field>
           </v-col>
-          <v-col class="pt-0">
+          <v-col class="py-0">
             <v-text-field
               label="Admin password"
               :rules="[ rules.required ]"
@@ -50,6 +49,20 @@
               @click:append="showAdminPass = !showAdminPass"
               autocomplete="off"
             ></v-text-field>
+          </v-col>
+        </v-row>
+
+        <v-row align="center">
+          <v-col class="pt-0">
+            <v-text-field
+              label="Max connections"
+              type="number"
+              :rules="[ rules.required, rules.nonZero, rules.onlyPositive ]"
+              v-model="data.max_connections"
+            ></v-text-field>
+          </v-col>
+          <v-col class="pt-0">
+            
           </v-col>
         </v-row>
 
@@ -244,6 +257,10 @@ export default class RoomsCreate extends Vue {
     },
   }
 
+  get nekoImages() {
+    return this.$store.state.roomsConfig.neko_images
+  }
+
   get videoCodecs() {
     return this.$store.state.videoCodecs
   }
@@ -303,12 +320,20 @@ export default class RoomsCreate extends Vue {
 
   Clear() {
     this._form.resetValidation()
-    this.data = { ...this.$store.state.defaultRoomSettings }
+    this.data = {
+      ...this.$store.state.defaultRoomSettings,
+      // eslint-disable-next-line
+      neko_image: this.nekoImages[0],
+    }
   }
 
   Close() {
     this.Clear()
     this.$emit('finished', true)
+  }
+
+  mounted() {
+    this.Clear()
   }
 }
 </script>

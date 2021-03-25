@@ -45,10 +45,10 @@ func New(ApiManager types.ApiManager, conf *config.Server) *HttpManagerCtx {
 	if conf.Static != "" {
 		fs := http.FileServer(http.Dir(conf.Static))
 		router.Get("/*", func(w http.ResponseWriter, r *http.Request) {
-			if _, err := os.Stat(conf.Static + r.RequestURI); os.IsNotExist(err) {
-				http.StripPrefix(r.RequestURI, fs).ServeHTTP(w, r)
-			} else {
+			if _, err := os.Stat(conf.Static + r.URL.Path); !os.IsNotExist(err) {
 				fs.ServeHTTP(w, r)
+			} else {
+				http.NotFound(w, r)
 			}
 		})
 	}

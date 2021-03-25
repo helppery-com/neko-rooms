@@ -3,6 +3,7 @@ package room
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	dockerTypes "github.com/docker/docker/api/types"
@@ -15,6 +16,13 @@ func (manager *RoomManagerCtx) containerToEntry(container dockerTypes.Container)
 	roomName, ok := container.Labels["m1k1o.neko_rooms.name"]
 	if !ok {
 		return nil, fmt.Errorf("Damaged container labels: name not found.")
+	}
+
+	nekoImage, ok := container.Labels["m1k1o.neko_rooms.neko_image"]
+	if !ok {
+		// Backward compatibility.
+		nekoImage = container.Image
+		//return nil, fmt.Errorf("Damaged container labels: neko_image not found.")
 	}
 
 	URL, ok := container.Labels["m1k1o.neko_rooms.url"]
@@ -31,8 +39,8 @@ func (manager *RoomManagerCtx) containerToEntry(container dockerTypes.Container)
 		ID:             container.ID,
 		URL:            URL,
 		Name:           roomName,
+		NekoImage:      nekoImage,
 		MaxConnections: epr.Max - epr.Min + 1,
-		Image:          container.Image,
 		Running:        container.State == "running",
 		Status:         container.Status,
 		Created:        time.Unix(container.Created, 0),
@@ -107,4 +115,30 @@ func (manager *RoomManagerCtx) inspectContainer(id string) (*dockerTypes.Contain
 	}
 
 	return &container, nil
+}
+
+func (manager *RoomManagerCtx) containerExec(id string, cmd []string) (string, error) {
+	exec, err := manager.client.ContainerExecCreate(context.Background(), id, dockerTypes.ExecConfig{
+		AttachStderr: true,
+		AttachStdin:  true,
+		AttachStdout: true,
+		Cmd:          cmd,
+		Tty:          true,
+		Detach:       false,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	conn, err := manager.client.ContainerExecAttach(context.Background(), exec.ID, dockerTypes.ExecStartCheck{
+		Detach: false,
+		Tty:    true,
+	})
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	data, err := io.ReadAll(conn.Reader)
+	return string(data), err
 }

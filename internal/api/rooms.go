@@ -9,6 +9,13 @@ import (
 	"m1k1o/neko_rooms/internal/types"
 )
 
+func (manager *ApiManagerCtx) roomsConfig(w http.ResponseWriter, r *http.Request) {
+	response := manager.rooms.Config()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 func (manager *ApiManagerCtx) roomsList(w http.ResponseWriter, r *http.Request) {
 	response, err := manager.rooms.List()
 	if err != nil {
@@ -43,10 +50,10 @@ func (manager *ApiManagerCtx) roomCreate(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(response)
 }
 
-func (manager *ApiManagerCtx) roomGetSettings(w http.ResponseWriter, r *http.Request) {
+func (manager *ApiManagerCtx) roomGetEntry(w http.ResponseWriter, r *http.Request) {
 	roomId := chi.URLParam(r, "roomId")
 
-	response, err := manager.rooms.GetSettings(roomId)
+	response, err := manager.rooms.GetEntry(roomId)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -66,6 +73,32 @@ func (manager *ApiManagerCtx) roomRemove(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (manager *ApiManagerCtx) roomGetSettings(w http.ResponseWriter, r *http.Request) {
+	roomId := chi.URLParam(r, "roomId")
+
+	response, err := manager.rooms.GetSettings(roomId)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func (manager *ApiManagerCtx) roomGetStats(w http.ResponseWriter, r *http.Request) {
+	roomId := chi.URLParam(r, "roomId")
+
+	response, err := manager.rooms.GetStats(roomId)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (manager *ApiManagerCtx) roomGenericAction(action func(id string) error) func(http.ResponseWriter, *http.Request) {
