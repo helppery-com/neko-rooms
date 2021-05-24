@@ -16,6 +16,18 @@ Simple room management system for [n.eko](https://github.com/m1k1o/neko). Self h
   <img src="https://github.com/m1k1o/neko-rooms/raw/master/docs/neko.gif" alt="n.eko">
 </div>
 
+## Zero-knowledge installation
+
+If you don't have any clue about docker and stuff but only want to have fun with friends in a shared browser, we got you covered!
+
+- Rent a VPS with public IP and OS Ubuntu.
+- Get a domain name pointing to your IP (you can even get some for free).
+- Run install script and follow instructions.
+
+```bash
+curl https://raw.githubusercontent.com/m1k1o/neko-rooms/master/install | sudo bash
+```
+
 ## How to start
 
 You need to have installed `Docker` and `docker-compose`. You need to have custom domain pointing to your server's IP.
@@ -27,6 +39,14 @@ https://www.youtube.com/watch?v=cCmnw-pq0gA
 ### Installation guide
 
 You only need `.env.example`, `docker-compose.yml` and `traefik/`.
+
+#### Do I need to use traefik?
+
+- Traefik needs to be used to forward traffic to the rooms. You can put nginx in front of it, but not replace it.
+- Your domain name specified for traefik must match domain name, that your proxy connects to. In docker-compose it is service name.
+- See example configuration for [nginx](docs/nginx).
+
+You can use `docker-compose.http.yml` that will expose this service to `8080` or any port. 
 
 ### Step 1
 
@@ -61,10 +81,32 @@ chmod 600 traefik/acme.json
 
 Update your email in `traefik/traefik.yml`.
 
+### Download images / update
+
+You need to pull all your images, that you want to use with neko-room. Otherwise you might get this error: `Error response from daemon: No such image:` (see issue #1).
+
+```sh
+docker pull m1k1o/neko:latest
+docker pull m1k1o/neko:chromium
+# etc...
+```
+
+If you want to update neko image, you need to pull new image and recreate all rooms, that use old image. To update neko rooms, simpy run:
+
+```sh
+docker-compose pull
+docker-compose up -d
+```
+
 ### Roadmap:
  - [x] add GUI
  - [x] add HTTPS support
  - [x] add authentication provider for traefik
+ - [x] allow specifying custom ENV variables
+ - [x] allow mounting direcotries for persistent data
+ - [ ] add upgrade button
+ - [ ] auto pull images, that do not exist
  - [ ] add bearer token to for API
  - [ ] add docker ssh / tcp support
  - [ ] add docker swarm support
+ - [ ] add k8s support

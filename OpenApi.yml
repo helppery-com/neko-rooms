@@ -24,9 +24,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/RoomsConfig'
+                $ref: '#/components/schemas/RoomsConfig'
         '500':
           description: Internal server error
   /api/rooms:
@@ -245,6 +243,20 @@ components:
           format: datetime
           example: "2021-03-07T21:56:34Z"
 
+    RoomMount:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [ private, template, public ]
+          example: private
+        host_path:
+          type: string
+          example: /profile
+        container_path:
+          type: string
+          example: /home/neko/.config/chromium
+
     RoomSettings:
       type: object
       properties:
@@ -287,6 +299,16 @@ components:
           example: 128
         audio_pipeline:
           type: string
+        envs:
+          type: object
+          additionalProperties: 
+            type: string
+          example:
+            CUSTOM_ENV: custom value
+        mounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoomMount'
 
     RoomStats:
       type: object

@@ -5,7 +5,23 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"m1k1o/neko_rooms/internal/utils"
 )
+
+var blacklistedEnvs = []string{
+	// ignore bunch of default envs
+	"DEBIAN_FRONTEND",
+	"DISPLAY",
+	"USER",
+	"PATH",
+
+	// ignore bunch of envs managed by neko-rooms
+	"NEKO_BIND",
+	"NEKO_EPR",
+	"NEKO_NAT1TO1",
+	"NEKO_ICELITE",
+}
 
 type RoomsConfig struct {
 	Connections uint16   `json:"connections"`
@@ -21,6 +37,20 @@ type RoomEntry struct {
 	Running        bool      `json:"running"`
 	Status         string    `json:"status"`
 	Created        time.Time `json:"created"`
+}
+
+type MountType string
+
+const (
+	MountPrivate  MountType = "private"
+	MountTemplate MountType = "template"
+	MountPublic   MountType = "public"
+)
+
+type RoomMount struct {
+	Type          MountType `json:"type"`
+	HostPath      string    `json:"host_path"`
+	ContainerPath string    `json:"container_path"`
 }
 
 type RoomSettings struct {
@@ -42,6 +72,9 @@ type RoomSettings struct {
 	AudioPipeline string `json:"audio_pipeline,omitempty"`
 
 	BroadcastPipeline string `json:"broadcast_pipeline,omitempty"`
+
+	Envs   map[string]string `json:"envs"`
+	Mounts []RoomMount       `json:"mounts"`
 }
 
 func (settings *RoomSettings) ToEnv() []string {
@@ -50,10 +83,6 @@ func (settings *RoomSettings) ToEnv() []string {
 		fmt.Sprintf("NEKO_PASSWORD_ADMIN=%s", settings.AdminPass),
 		fmt.Sprintf("NEKO_SCREEN=%s", settings.Screen),
 		fmt.Sprintf("NEKO_MAX_FPS=%d", settings.VideoMaxFPS),
-	}
-
-	if settings.BroadcastPipeline != "" {
-		env = append(env, fmt.Sprintf("NEKO_BROADCAST_PIPELINE=%s", settings.BroadcastPipeline))
 	}
 
 	if settings.VideoCodec == "VP8" || settings.VideoCodec == "VP9" || settings.VideoCodec == "H264" {
@@ -80,63 +109,78 @@ func (settings *RoomSettings) ToEnv() []string {
 		env = append(env, fmt.Sprintf("NEKO_AUDIO=%s", settings.AudioPipeline))
 	}
 
+	if settings.BroadcastPipeline != "" {
+		env = append(env, fmt.Sprintf("NEKO_BROADCAST_PIPELINE=%s", settings.BroadcastPipeline))
+	}
+
+	for key, val := range settings.Envs {
+		if in, _ := utils.ArrayIn(key, blacklistedEnvs); !in {
+			env = append(env, fmt.Sprintf("%s=%s", key, val))
+		}
+	}
+
 	return env
 }
 
 func (settings *RoomSettings) FromEnv(envs []string) error {
+	settings.Envs = map[string]string{}
+
 	var err error
 	for _, env := range envs {
-		r := strings.SplitAfterN(env, "=", 2)
-		key := r[0]
-		val := r[1]
+		r := strings.SplitN(env, "=", 2)
+		key, val := r[0], r[1]
 
 		switch key {
-		case "NEKO_PASSWORD=":
+		case "NEKO_PASSWORD":
 			settings.UserPass = val
-		case "NEKO_PASSWORD_ADMIN=":
+		case "NEKO_PASSWORD_ADMIN":
 			settings.AdminPass = val
-		case "NEKO_SCREEN=":
+		case "NEKO_SCREEN":
 			settings.Screen = val
-		case "NEKO_MAX_FPS=":
+		case "NEKO_MAX_FPS":
 			settings.VideoMaxFPS, err = strconv.Atoi(val)
-		case "NEKO_BROADCAST_PIPELINE=":
+		case "NEKO_BROADCAST_PIPELINE":
 			settings.BroadcastPipeline = val
-		case "NEKO_VP8=":
+		case "NEKO_VP8":
 			if ok, _ := strconv.ParseBool(val); ok {
 				settings.VideoCodec = "VP8"
 			}
-		case "NEKO_VP9=":
+		case "NEKO_VP9":
 			if ok, _ := strconv.ParseBool(val); ok {
 				settings.VideoCodec = "VP9"
 			}
-		case "NEKO_H264=":
+		case "NEKO_H264":
 			if ok, _ := strconv.ParseBool(val); ok {
 				settings.VideoCodec = "H264"
 			}
-		case "NEKO_VIDEO_BITRATE=":
+		case "NEKO_VIDEO_BITRATE":
 			settings.VideoBitrate, err = strconv.Atoi(val)
-		case "NEKO_VIDEO=":
+		case "NEKO_VIDEO":
 			settings.VideoPipeline = val
-		case "NEKO_OPUS=":
+		case "NEKO_OPUS":
 			if ok, _ := strconv.ParseBool(val); ok {
 				settings.AudioCodec = "OPUS"
 			}
-		case "NEKO_G722=":
+		case "NEKO_G722":
 			if ok, _ := strconv.ParseBool(val); ok {
 				settings.AudioCodec = "G722"
 			}
-		case "NEKO_PCMU=":
+		case "NEKO_PCMU":
 			if ok, _ := strconv.ParseBool(val); ok {
 				settings.AudioCodec = "PCMU"
 			}
-		case "NEKO_PCMA=":
+		case "NEKO_PCMA":
 			if ok, _ := strconv.ParseBool(val); ok {
 				settings.AudioCodec = "PCMA"
 			}
-		case "NEKO_AUDIO_BITRATE=":
+		case "NEKO_AUDIO_BITRATE":
 			settings.AudioBitrate, err = strconv.Atoi(val)
-		case "NEKO_AUDIO=":
+		case "NEKO_AUDIO":
 			settings.AudioPipeline = val
+		default:
+			if in, _ := utils.ArrayIn(key, blacklistedEnvs); !in {
+				settings.Envs[key] = val
+			}
 		}
 
 		if err != nil {
@@ -163,6 +207,7 @@ type RoomMember struct {
 type RoomManager interface {
 	Config() RoomsConfig
 	List() ([]RoomEntry, error)
+	FindByName(name string) (*RoomEntry, error)
 
 	Create(settings RoomSettings) (string, error)
 	GetEntry(id string) (*RoomEntry, error)

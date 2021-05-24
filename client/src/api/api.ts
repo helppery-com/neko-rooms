@@ -110,6 +110,42 @@ export interface RoomMember {
 /**
  * 
  * @export
+ * @interface RoomMount
+ */
+export interface RoomMount {
+    /**
+     * 
+     * @type {string}
+     * @memberof RoomMount
+     */
+    type?: RoomMountTypeEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof RoomMount
+     */
+    host_path?: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof RoomMount
+     */
+    container_path?: string;
+}
+
+/**
+    * @export
+    * @enum {string}
+    */
+export enum RoomMountTypeEnum {
+    private = 'private',
+    template = 'template',
+    public = 'public'
+}
+
+/**
+ * 
+ * @export
  * @interface RoomSettings
  */
 export interface RoomSettings {
@@ -197,6 +233,18 @@ export interface RoomSettings {
      * @memberof RoomSettings
      */
     audio_pipeline?: string;
+    /**
+     * 
+     * @type {{ [key: string]: string; }}
+     * @memberof RoomSettings
+     */
+    envs?: { [key: string]: string; };
+    /**
+     * 
+     * @type {Array<RoomMount>}
+     * @memberof RoomSettings
+     */
+    mounts?: Array<RoomMount>;
 }
 /**
  * 
@@ -295,7 +343,7 @@ export const ConfigApiFp = function(configuration?: Configuration) {
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async roomsConfig(options?: any): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<RoomsConfig>>> {
+        async roomsConfig(options?: any): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<RoomsConfig>> {
             const localVarAxiosArgs = await localVarAxiosParamCreator.roomsConfig(options);
             return createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration);
         },
@@ -315,7 +363,7 @@ export const ConfigApiFactory = function (configuration?: Configuration, basePat
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        roomsConfig(options?: any): AxiosPromise<Array<RoomsConfig>> {
+        roomsConfig(options?: any): AxiosPromise<RoomsConfig> {
             return localVarFp.roomsConfig(options).then((request) => request(axios, basePath));
         },
     };
